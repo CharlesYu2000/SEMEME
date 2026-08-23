@@ -1,0 +1,73 @@
+--- a/lm_eval/evaluator.py
++++ b/lm_eval/evaluator.py
+@@ -47,12 +47,14 @@
+     from lm_eval.loggers import EvaluationTracker
+ 
+ eval_logger = logging.getLogger(__name__)
++sememe_logger = logging.getLogger("sememe")
+ 
+ 
+ @positional_deprecated
+ def simple_evaluate(
+     model: str | LM,
+     model_args: str | dict[str, str | int | float] | None = None,
++    sememe_model_name: str = None,
+     tasks: list[str | dict | Task] | None = None,
+     num_fewshot: int | None = None,
+     batch_size: int | str | None = None,
+@@ -82,6 +84,10 @@
+     fewshot_random_seed: int = DEFAULT_OTHER_SEED,
+     confirm_run_unsafe_code: bool = False,
+     metadata: dict | None = None,
++    remove: bool = False,
++    removal_list: list = None,
++    return_lm: bool = False,
++    pruning_version: bool = False,
+ ):
+     """Instantiate and evaluate a model on a list of tasks.
+ 
+@@ -259,6 +265,20 @@
+                     "device": device,
+                 },
+             )
++
++        if pruning_version:
++            sememe_logger.debug(f"Pruning version: setting up model replacement for {sememe_model_name}")
++            from sememeutils.onoff_utils.onoff import block_replace
++            lm.model.name = model_args
++            lm._model = block_replace(lm.model, model_name=sememe_model_name)
++        else:
++            if remove is True:
++                sememe_logger.debug(f"Fully removing blocks: {removal_list} from model {sememe_model_name}")
++                lm.model.name = model_args
++                # Full eval with speed improvements
++                from sememeutils.block_remove import block_remove
++                lm._model = block_remove(lm.model, removal_list)
++
+     else:
+         if not isinstance(model, lm_eval.api.model.LM):
+             raise TypeError(
+@@ -266,6 +286,14 @@
+             )
+         eval_logger.info("Using pre-initialized model")
+         lm = model
++
++    if pruning_version and remove:
++        sememe_logger.debug(f"Pruning version with removal: turning off but not killing {sememe_model_name} with removal list {removal_list}")
++        lm.model.name = model_args
++        from sememeutils.onoff_utils.onoff import turn_off
++        for block in removal_list:
++            turn_off(lm.model, block, model_name=sememe_model_name)
++        lm._model = lm.model
+ 
+     if use_cache is not None:
+         eval_logger.info(f"Using cache at {use_cache + '_rank' + str(lm.rank) + '.db'}")
+@@ -420,6 +448,8 @@
+         results["date"] = start_date
+         add_env_info(results)  # additional environment info to results
+         add_tokenizer_info(results, lm)  # additional info about tokenizer
++        if return_lm:
++            return results, lm
+         return results
+     else:
+         return None

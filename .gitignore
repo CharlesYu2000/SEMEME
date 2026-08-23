@@ -1,0 +1,21 @@
+# Hugging Face token
+.hf_token
+
+# lm-evaluation-harness
+lm-evaluation-harness/
+
+# Outputs
+logs/
+evaluate_pruned_logs/
+sememe_results/
+timings/
+results/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# OS
+.DS_Store

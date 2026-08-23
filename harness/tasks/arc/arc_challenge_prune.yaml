@@ -1,0 +1,3 @@
+include: arc_easy_prune.yaml
+task: arc_challenge_prune
+dataset_name: ARC-Challenge
